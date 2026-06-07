@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Atividade Final RabbitMQ</title>
+	<link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+	<div class="page">
+		<header class="hero">
+			<div>
+				<p class="eyebrow">Mensageria com Java + RabbitMQ</p>
+				<h1>Envio assíncrono de e-mails em lote</h1>
+				<p class="subtitle">
+					Cadastre destinatários, monte uma mensagem e publique a solicitação na fila para o consumidor processar depois.
+				</p>
+			</div>
+			<div class="hero-info">
+				<div class="info-card">
+					<span>Total de destinatários</span>
+					<strong th:text="${recipientCount}">0</strong>
+				</div>
+				<div class="info-card">
+					<span>Fila</span>
+					<strong th:text="${queueName}">email.lote.queue</strong>
+				</div>
+			</div>
+		</header>
+
+		<div th:if="${successMessage}" class="alert success" th:text="${successMessage}"></div>
+		<div th:if="${errorMessage}" class="alert error" th:text="${errorMessage}"></div>
+
+		<section class="grid two-columns">
+			<div class="card">
+				<h2>1. Cadastrar grupo de e-mails</h2>
+				<p class="section-text">Cole vários e-mails separados por vírgula, ponto e vírgula, espaço ou quebra de linha.</p>
+				<form th:action="@{/recipients}" method="post" class="form">
+					<label for="emailsText">Destinatários</label>
+					<textarea id="emailsText" name="emailsText" rows="8" placeholder="exemplo1@email.com&#10;exemplo2@email.com"></textarea>
+					<button type="submit">Salvar e-mails</button>
+				</form>
+			</div>
+
+			<div class="card">
+				<h2>2. Solicitar envio em lote</h2>
+				<p class="section-text">A requisição principal apenas publica um job na fila. O envio real é feito pelo consumidor.</p>
+				<form th:action="@{/dispatch}" method="post" class="form">
+					<label for="subject">Assunto</label>
+					<input id="subject" name="subject" type="text" placeholder="Comunicado da turma" maxlength="180">
+
+					<label for="messageBody">Mensagem</label>
+					<textarea id="messageBody" name="messageBody" rows="8" placeholder="Digite aqui a mensagem que será enviada para todos os destinatários."></textarea>
+
+					<button type="submit">Publicar solicitação na fila</button>
+				</form>
+			</div>
+		</section>
+
+		<section class="grid two-columns">
+			<div class="card">
+				<div class="section-header">
+					<h2>Destinatários cadastrados</h2>
+					<span th:text="|${recipientCount} registro(s)|">0 registro(s)</span>
+				</div>
+				<div class="table-wrapper">
+					<table>
+						<thead>
+							<tr>
+								<th>ID</th>
+								<th>E-mail</th>
+								<th>Cadastro</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr th:if="${#lists.isEmpty(recipients)}">
+								<td colspan="3">Nenhum e-mail cadastrado ainda.</td>
+							</tr>
+							<tr th:each="recipient : ${recipients}">
+								<td th:text="${recipient.id}">1</td>
+								<td th:text="${recipient.email}">email@teste.com</td>
+								<td th:text="${#temporals.format(recipient.createdAt, 'dd/MM/yyyy HH:mm')}">22/05/2026 17:00</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			<div class="card">
+				<div class="section-header">
+					<h2>Últimos processamentos</h2>
+					<span>Top 10 jobs</span>
+				</div>
+				<div class="table-wrapper">
+					<table>
+						<thead>
+							<tr>
+								<th>Job</th>
+								<th>Status</th>
+								<th>Destinatários</th>
+								<th>Resultado</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr th:if="${#lists.isEmpty(jobs)}">
+								<td colspan="4">Nenhum envio solicitado até o momento.</td>
+							</tr>
+							<tr th:each="job : ${jobs}">
+								<td>
+									<strong th:text="|#${job.id}|">#1</strong>
+									<div class="muted" th:text="${job.subject}">Assunto</div>
+								</td>
+								<td>
+									<span class="badge" th:classappend="${' ' + #strings.toLowerCase(job.status.name())}" th:text="${job.status}">QUEUED</span>
+								</td>
+								<td th:text="${job.recipientCount}">0</td>
+								<td>
+									<div th:text="'Sucesso: ' + ${job.successfulCount} + ' | Falha: ' + ${job.failedCount}">Sucesso: 0 | Falha: 0</div>
+									<div class="muted" th:text="${#temporals.format(job.requestedAt, 'dd/MM/yyyy HH:mm')}">22/05/2026 17:10</div>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</section>
+
+		<section class="grid three-columns">
+			<div class="card compact">
+				<h3>RabbitMQ</h3>
+				<ul>
+					<li><strong>Exchange:</strong> <span th:text="${exchangeName}">email.lote.exchange</span></li>
+					<li><strong>Queue:</strong> <span th:text="${queueName}">email.lote.queue</span></li>
+					<li><strong>Routing key:</strong> <span th:text="${routingKey}">email.lote.routing-key</span></li>
+					<li><strong>Management:</strong> http://localhost:15673</li>
+				</ul>
+			</div>
+			<div class="card compact">
+				<h3>Banco PostgreSQL</h3>
+				<ul>
+					<li><strong>Host:</strong> localhost:5432</li>
+					<li><strong>Database:</strong> atividade_final_rabbitmq_db</li>
+					<li><strong>Tabelas:</strong> recipient_emails e send_jobs</li>
+				</ul>
+			</div>
+			<div class="card compact">
+				<h3>SMTP de teste</h3>
+				<ul>
+					<li><strong>Servidor:</strong> localhost:1026</li>
+					<li><strong>Inbox web:</strong> http://localhost:8026</li>
+					<li><strong>Remetente padrão:</strong> nao-responda@atividade.local</li>
+				</ul>
+			</div>
+		</section>
+	</div>
+</body>
+</html>
